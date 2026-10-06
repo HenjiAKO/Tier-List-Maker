@@ -29,8 +29,11 @@ const path = require("node:path")
 const CH = require("./ipc-channels.cjs")
 const { DiskStore } = require("./disk-store.cjs")
 
-const isDev = !app.isPackaged
-const DEV_URL = process.env.VITE_DEV_SERVER_URL || "http://localhost:5173"
+// Only attach to a dev server when one was explicitly requested. Running from
+// source against a built renderer is the default, so `electron .` works without
+// a Vite process and the smoke test never races the dev server.
+const isDev = Boolean(process.env.VITE_DEV_SERVER_URL)
+const DEV_URL = process.env.VITE_DEV_SERVER_URL
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null
@@ -70,6 +73,11 @@ function createWindow(state) {
   } else {
     win.loadFile(path.join(__dirname, "..", "dist", "index.html"))
   }
+
+  // A renderer that fails to load leaves no UI to explain itself.
+  win.webContents.on("did-fail-load", (_event, code, description, url) => {
+    console.error(`[main] failed to load ${url}: ${description} (${code})`)
+  })
 
   // External links belong in the user's browser, never inside an app window.
   win.webContents.setWindowOpenHandler(({ url }) => {
