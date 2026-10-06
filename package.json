@@ -1,0 +1,63 @@
+{
+  "name": "tier-list-maker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "tsx tests/place-item.test.ts",
+    "test:e2e": "npm run build && tsx tests/run-e2e.ts",
+    "test:shots": "npm run build && tsx tests/screenshots.ts",
+    "test:desktop": "npm run build && tsx tests/smoke-electron.ts",
+    "dev:desktop": "npm run build && electron .",
+    "build:desktop": "npm run build && electron-builder --dir"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "class-variance-authority": "^0.7.1",
+    "cn": "^0.4.0",
+    "html-to-image": "^1.11.13",
+    "lucide-react": "^1.52.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "shadcn": "^4.21.2",
+    "sonner": "^2.0.8",
+    "tailwindcss": "^4.3.3",
+    "tw-animate-css": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "oxlint": "^1.81.0",
+    "playwright": "^1.63.0",
+    "tsx": "^4.20.6",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  },
+  "build": {
+    "appId": "com.example.tierlistmaker",
+    "productName": "Tier List Maker",
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "dir"
+    }
+  }
+}
