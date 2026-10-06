@@ -1,7 +1,5 @@
 import { toPng } from "html-to-image"
 import { newId } from "@/data/defaults"
-import { isDesktop, openJsonFile, saveFile } from "@/lib/desktop"
-import { storeImage } from "@/utils/media-store"
 import type { SchemeId, TierItem, TierList } from "@/types"
 
 export const EXPORT_FILE_VERSION = 1
@@ -18,22 +16,14 @@ function slugify(text: string): string {
   )
 }
 
-function isDataUrl(value: string): boolean {
-  return /^data:[^;,]+;base64,/.test(value)
-}
-
 /**
  * Reads a JSON file chosen by the user.
  *
- * Uses the native dialog on desktop and falls back to a hidden file input in a
- * browser. Returns null when the user cancels.
+ * Uses a transient hidden file input. A cancelled picker fires no event in most
+ * browsers, so the promise simply never settles; that is fine for a helper
+ * input that gets garbage collected with it.
  */
-export async function chooseJsonFile(): Promise<{ name: string; text: string } | null> {
-  if (isDesktop()) {
-    const text = await openJsonFile()
-    return text === null ? null : { name: "tier list", text }
-  }
-
+export function chooseJsonFile(): Promise<{ name: string; text: string } | null> {
   return new Promise((resolve) => {
     const input = document.createElement("input")
     input.type = "file"
@@ -42,61 +32,46 @@ export async function chooseJsonFile(): Promise<{ name: string; text: string } |
       const file = input.files?.[0]
       resolve(file ? { name: file.name, text: await file.text() } : null)
     }
-    // A cancelled picker fires no event in most browsers, so the promise simply
-    // never settles; that is fine for a transient helper input.
     input.click()
   })
 }
 
-/** Rewrites data-URL images to files under the library's media folder. */
-export async function inlineImagesAsFiles(lists: TierList[]): Promise<TierList[]> {
-  if (!isDesktop()) return lists
+/**
+ * Saves text or a data URL to disk.
+ *
+ * A data URL is decoded to real bytes first, otherwise the PNG would land on
+ * disk as the base64 string rather than an image.
+ */
+function saveFile(suggestedName: string, data: string): boolean {
+  const match = /^data:[^;,]*;base64,(.+)$/.exec(data)
+  const parts = match
+    ? [Uint8Array.from(atob(match[1]), (c) => c.charCodeAt(0))]
+    : [data]
 
-  const stored = new Map<string, string>()
-  for (const list of lists) {
-    for (const item of list.items) {
-      if (!isDataUrl(item.image)) continue
-      if (stored.has(item.image)) continue
-      const { image } = await storeImage(item.id, item.image)
-      stored.set(item.image, image)
-    }
-  }
-
-  if (stored.size === 0) return lists
-
-  const rewrite = (image: string) => stored.get(image) ?? image
-  return lists.map((list) => ({
-    ...list,
-    items: list.items.map((item) => ({ ...item, image: rewrite(item.image) })),
-  }))
+  const url = URL.createObjectURL(new Blob(parts, { type: match ? "image/png" : "application/json" }))
+  const link = document.createElement("a")
+  link.href = url
+  link.download = suggestedName
+  link.click()
+  // Revoking immediately can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return true
 }
 
-const JSON_FILTERS = [{ name: "Tier list JSON", extensions: ["json"] }]
-const PNG_FILTERS = [{ name: "PNG image", extensions: ["png"] }]
-
-/**
- * Exports a list as JSON.
- *
- * On desktop the user picks the destination through the native save dialog; in
- * a browser this falls back to a download.
- */
-export async function exportListJson(list: TierList): Promise<boolean> {
-  return saveFile({
-    title: "Export tier list",
-    suggestedName: `${slugify(list.title)}.json`,
-    data: JSON.stringify({ version: EXPORT_FILE_VERSION, lists: [list] }, null, 2),
-    filters: JSON_FILTERS,
-  })
+/** Exports a list as JSON. */
+export function exportListJson(list: TierList): boolean {
+  return saveFile(
+    `${slugify(list.title)}.json`,
+    JSON.stringify({ version: EXPORT_FILE_VERSION, lists: [list] }, null, 2),
+  )
 }
 
 /** Exports the whole library as one backup file. */
-export async function exportAllJson(lists: TierList[]): Promise<boolean> {
-  return saveFile({
-    title: "Export all tier lists",
-    suggestedName: "tier-list-maker.json",
-    data: JSON.stringify({ version: EXPORT_FILE_VERSION, lists }, null, 2),
-    filters: JSON_FILTERS,
-  })
+export function exportAllJson(lists: TierList[]): boolean {
+  return saveFile(
+    "tier-list-maker.json",
+    JSON.stringify({ version: EXPORT_FILE_VERSION, lists }, null, 2),
+  )
 }
 
 /**
@@ -117,12 +92,7 @@ export async function downloadNodeAsPng(
     cacheBust: true,
     backgroundColor: getComputedStyle(document.body).backgroundColor,
   })
-  return saveFile({
-    title: "Export PNG",
-    suggestedName: `${slugify(filename)}.png`,
-    data: dataUrl,
-    filters: PNG_FILTERS,
-  })
+  return saveFile(`${slugify(filename)}.png`, dataUrl)
 }
 
 /* -------------------------------- importing -------------------------------- */

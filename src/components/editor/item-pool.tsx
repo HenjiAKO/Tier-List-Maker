@@ -9,7 +9,6 @@ import {
   processImageFiles,
 } from "@/utils/image"
 import type { NewItemInput } from "@/hooks/use-lists"
-import { isDesktop, pickImages } from "@/lib/desktop"
 import { cn } from "@/lib/utils"
 import type { TierItem } from "@/types"
 
@@ -57,7 +56,7 @@ export function ItemPool({
       onSelectItem(null)
       return
     }
-    // Otherwise it's files coming from the desktop.
+    // Otherwise it's image files dropped from the file system.
     const files = imageFilesFromDrop(e.dataTransfer)
     if (files.length === 0) return
     e.preventDefault()
@@ -103,16 +102,7 @@ export function ItemPool({
           variant="outline"
           size="sm"
           className="ml-auto"
-          onClick={() => {
-            // Desktop gets the native picker; the browser keeps the hidden input.
-            if (isDesktop()) {
-              void pickImages().then((files) => {
-                if (files.length > 0) void ingest(files)
-              })
-              return
-            }
-            fileRef.current?.click()
-          }}
+          onClick={() => fileRef.current?.click()}
         >
           <Upload className="size-4" />
           Add images

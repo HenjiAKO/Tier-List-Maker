@@ -1,7 +1,6 @@
 import { memo } from "react"
 import { ImageIcon, StickyNote } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { itemImageSrc } from "@/utils/media-store"
 import type { TierItem } from "@/types"
 
 export const DRAG_MIME = "application/x-tlm-item"
@@ -73,7 +72,7 @@ function ItemTileBase({
       <div className="relative">
         {item.image ? (
           <img
-            src={itemImageSrc(item.image)}
+            src={item.image}
             alt={item.name || "Item"}
             draggable={false}
             className={cn(s.img, "rounded-md object-cover ring-1 ring-border")}

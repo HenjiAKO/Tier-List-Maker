@@ -20,7 +20,6 @@ import { itemMap } from "@/hooks/use-lists"
 import { cn } from "@/lib/utils"
 import type { TierList } from "@/types"
 import { itemCount, relativeTime } from "@/utils/format"
-import { itemImageSrc } from "@/utils/media-store"
 
 const MAX_ITEMS_PER_TIER = 7
 
@@ -52,7 +51,7 @@ function TierListThumbnail({ list }: { list: TierList }) {
               return (
                 <img
                   key={id}
-                  src={itemImageSrc(item.image)}
+                  src={item.image}
                   alt=""
                   loading="lazy"
                   className="size-5 shrink-0 rounded-[3px] object-cover"

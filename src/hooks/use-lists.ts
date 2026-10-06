@@ -7,13 +7,12 @@ import {
   nextTierColor,
 } from "@/data/defaults"
 import { usePersistedState } from "@/hooks/use-persisted-state"
-import { deleteMedia, storeImage } from "@/utils/media-store"
 import type { AppData, NewListInput, Tier, TierItem, TierList } from "@/types"
 
 const EMPTY: AppData = { version: DATA_VERSION, lists: [] }
 
 export interface NewItemInput {
-  /** Canvas output from processImageFile; written to disk on desktop. */
+  /** Canvas output from processImageFile. */
   image: string
   name: string
 }
@@ -22,7 +21,7 @@ export interface NewItemInput {
 export type ListsApi = ReturnType<typeof useLists>
 
 export function useLists() {
-  const { value, setValue, error, ready, flush } = usePersistedState<AppData>(STORAGE_KEY, EMPTY)
+  const { value, setValue, error, flush } = usePersistedState<AppData>(STORAGE_KEY, EMPTY)
 
   const lists = value.lists
 
@@ -70,11 +69,9 @@ export function useLists() {
 
   const deleteList = useCallback(
     (listId: string) => {
-      const target = lists.find((l) => l.id === listId)
-      if (target) void deleteMedia(target.items.map((item) => item.id))
       write((prev) => ({ ...prev, lists: prev.lists.filter((l) => l.id !== listId) }))
     },
-    [lists, write],
+    [write],
   )
 
   const duplicateList = useCallback(
@@ -124,62 +121,36 @@ export function useLists() {
 
   /* ---------------------------------- items --------------------------------- */
 
-  /**
-   * Adds imported images as items.
-   *
-   * Ids are minted first because they double as the media filenames on disk.
-   * Images are written before the list is updated, so a library entry never
-   * points at a file that failed to save.
-   */
+  /** Adds imported images as items. */
   const addItems = useCallback(
-    async (listId: string, incoming: NewItemInput[]) => {
+    (listId: string, incoming: NewItemInput[]) => {
       if (incoming.length === 0) return
 
-      const stored = await Promise.all(
-        incoming.map(async (input) => {
-          const id = newId()
-          const { image } = await storeImage(id, input.image)
-          return { id, image, name: input.name.trim(), rarity: null, note: "" }
-        }),
-      )
+      const items: TierItem[] = incoming.map((input) => ({
+        id: newId(),
+        image: input.image,
+        name: input.name.trim(),
+        rarity: null,
+        note: "",
+      }))
 
-      updateList(listId, (list) => ({ ...list, items: [...list.items, ...stored] }))
+      updateList(listId, (list) => ({ ...list, items: [...list.items, ...items] }))
     },
     [updateList],
   )
 
   const updateItem = useCallback(
     (listId: string, itemId: string, patch: Partial<Omit<TierItem, "id">>) => {
-      // A replacement image arrives as canvas output, so it has to be written
-      // to disk under the existing item id before the reference is swapped.
-      // Without this the library would keep pointing at the old file.
-      const incoming = patch.image?.startsWith("data:image/") ? patch.image : null
-      const next: Partial<TierItem> = incoming ? { ...patch, image: undefined } : patch
-
       updateList(listId, (list) => ({
         ...list,
-        items: list.items.map((item) =>
-          item.id === itemId ? { ...item, ...next, image: item.image } : item,
-        ),
+        items: list.items.map((item) => (item.id === itemId ? { ...item, ...patch } : item)),
       }))
-
-      if (incoming) {
-        void storeImage(itemId, incoming).then(({ image }) => {
-          updateList(listId, (list) => ({
-            ...list,
-            items: list.items.map((item) => (item.id === itemId ? { ...item, image } : item)),
-          }))
-        })
-      }
     },
     [updateList],
   )
 
   const removeItem = useCallback(
     (listId: string, itemId: string) => {
-      // Drop the image file too, otherwise deleting items across many sessions
-      // slowly fills the library folder with orphans.
-      void deleteMedia([itemId])
       updateList(listId, (list) => ({
         items: list.items.filter((item) => item.id !== itemId),
         tiers: list.tiers.map((tier) => ({
@@ -302,7 +273,6 @@ export function useLists() {
     lists,
     sortedLists,
     error,
-    ready,
     flush,
     createList,
     deleteList,
@@ -321,7 +291,8 @@ export function useLists() {
 }
 
 /** Ids of items that are not referenced by any tier. */
-export function unplacedIds(list: TierList): string[] {  const placed = new Set(list.tiers.flatMap((t) => t.itemIds))
+export function unplacedIds(list: TierList): string[] {
+  const placed = new Set(list.tiers.flatMap((t) => t.itemIds))
   return list.items.filter((item) => !placed.has(item.id)).map((item) => item.id)
 }
 

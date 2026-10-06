@@ -26,7 +26,6 @@ import { itemMap, unplacedIds, type ListsApi } from "@/hooks/use-lists"
 import { cn } from "@/lib/utils"
 import type { TierItem, TierList } from "@/types"
 import { exportListJson, downloadNodeAsPng } from "@/utils/files"
-import { itemImageSrc } from "@/utils/media-store"
 
 const ALL_RARITIES = "__all__"
 const NO_RARITY = "__none__"
@@ -115,9 +114,7 @@ export function Editor({ list, api, onBack }: EditorProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => {
-                  void exportListJson(list).then((saved) => {
-                    if (saved) toast.success("Exported JSON")
-                  })
+                  if (exportListJson(list)) toast.success("Exported JSON")
                 }}
               >
                 <FileDown className="size-4" />
@@ -324,7 +321,7 @@ function ExportSurface({ list, items }: { list: TierList; items: Map<string, Tie
                 if (!item) return null
                 return (
                   <div key={id} className="flex w-20 flex-col items-center gap-1">
-                    <img src={itemImageSrc(item.image)} alt="" className="size-20 rounded-md object-cover" />
+                      <img src={item.image} alt="" className="size-20 rounded-md object-cover" />
                     <span className="w-full truncate text-center text-xs font-medium">
                       {item.name || "—"}
                     </span>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { FileDown, FileUp, Gamepad2, Layers, Package, Search, Upload } from "lucide-react"
 import { toast } from "sonner"
 import { ThemeControls } from "@/components/theme-controls"
@@ -27,8 +27,7 @@ import { TierListCard } from "@/components/dashboard/tier-list-card"
 import type { ListsApi } from "@/hooks/use-lists"
 import { cn } from "@/lib/utils"
 import type { ListKind } from "@/types"
-import { chooseJsonFile, exportAllJson, exportListJson, inlineImagesAsFiles, parseListJson } from "@/utils/files"
-import { isDesktop } from "@/lib/desktop"
+import { exportAllJson, exportListJson, parseListJson } from "@/utils/files"
 
 interface DashboardProps {
   api: ListsApi
@@ -49,18 +48,20 @@ export function Dashboard({ api, onOpenList }: DashboardProps) {
     return nav === "all" ? filtered : filtered.slice(0, 12)
   }, [api.sortedLists, query, nav])
 
-  /** Shared by the hidden file input, the native dialog and the File menu. */
-  const importFromText = useCallback(async (text: string) => {
-    try {
-      // Images in a JSON file are data URLs, so they need writing out to the
-      // media folder before the library can reference them.
-      const lists = await inlineImagesAsFiles(parseListJson(text))
-      api.importLists(lists)
-      toast.success(`Imported ${lists.length} tier ${lists.length === 1 ? "list" : "lists"}`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not read that file.")
-    }
-  }, [api])
+  const importFromText = useCallback(
+    async (text: string) => {
+      try {
+        // Images in a JSON file are already data URLs, which is exactly how the
+        // library stores them, so they can be used as-is.
+        const lists = parseListJson(text)
+        api.importLists(lists)
+        toast.success(`Imported ${lists.length} tier ${lists.length === 1 ? "list" : "lists"}`)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not read that file.")
+      }
+    },
+    [api],
+  )
 
   const handleImport = useCallback(
     async (file: File | undefined) => {
@@ -70,19 +71,10 @@ export function Dashboard({ api, onOpenList }: DashboardProps) {
     [importFromText],
   )
 
-  const handleNativeImport = useCallback(async () => {
-    if (!isDesktop()) {
-      importRef.current?.click()
-      return
-    }
-    const chosen = await chooseJsonFile()
-    if (chosen) await importFromText(chosen.text)
-  }, [importFromText])
-
   const exportEverything = useCallback(() => {
-    void exportAllJson(api.lists).then((saved) => {
-      if (saved) toast.success(`Exported ${api.lists.length} tier lists`)
-    })
+    if (exportAllJson(api.lists)) {
+      toast.success(`Exported ${api.lists.length} tier lists`)
+    }
   }, [api.lists])
 
   const handleCreate = (input: Parameters<ListsApi["createList"]>[0]) => {
@@ -96,16 +88,6 @@ export function Dashboard({ api, onOpenList }: DashboardProps) {
     setCreateKind(kind)
     setCreateOpen(true)
   }, [])
-
-  // The native File menu drives the same handlers as the on-screen buttons.
-  useEffect(() => {
-    if (!isDesktop()) return
-    return window.desktop!.onMenuCommand((command) => {
-      if (command === "new-list") openCreate()
-      else if (command === "import") void handleNativeImport()
-      else if (command === "export-all") exportEverything()
-    })
-  }, [openCreate, handleNativeImport, exportEverything])
 
   return (
     <div className="flex min-h-svh bg-background">
@@ -173,7 +155,7 @@ export function Dashboard({ api, onOpenList }: DashboardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => void handleNativeImport()}>
+              <DropdownMenuItem onSelect={() => importRef.current?.click()}>
                 <Upload className="size-4" />
                 Import JSON
               </DropdownMenuItem>
@@ -219,7 +201,7 @@ export function Dashboard({ api, onOpenList }: DashboardProps) {
                 icon={FileUp}
                 title="Import a list"
                 description="Open a saved .json file"
-                onClick={() => void handleNativeImport()}
+                onClick={() => importRef.current?.click()}
               />
             </div>
           </section>
@@ -254,9 +236,7 @@ export function Dashboard({ api, onOpenList }: DashboardProps) {
                     onExport={(id) => {
                       const target = api.lists.find((l) => l.id === id)
                       if (!target) return
-                      void exportListJson(target).then((saved) => {
-                        if (saved) toast.success("Exported JSON")
-                      })
+                      if (exportListJson(target)) toast.success("Exported JSON")
                     }}
                     onDelete={(id) => {
                       const target = api.lists.find((l) => l.id === id)

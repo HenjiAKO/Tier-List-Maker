@@ -20,8 +20,6 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { ACCEPT_ATTRIBUTE, processImageFiles } from "@/utils/image"
-import { isDesktop, pickImages } from "@/lib/desktop"
-import { itemImageSrc } from "@/utils/media-store"
 import { toast } from "sonner"
 import type { RarityScheme, TierItem } from "@/types"
 
@@ -54,19 +52,8 @@ export function ItemEditDialog({
   const replaceImage = async (files: FileList | File[] | null) => {
     if (!files?.length) return
     const { accepted, rejected } = await processImageFiles(files)
-    // Held as canvas output; useLists writes it to the item's media file and
-    // swaps in the stored reference.
     if (accepted[0]) setImage(accepted[0].dataUrl)
     for (const r of rejected) toast.error(r.reason)
-  }
-
-  const chooseReplacement = async () => {
-    if (isDesktop()) {
-      const files = await pickImages()
-      if (files.length > 0) await replaceImage(files)
-      return
-    }
-    document.getElementById("item-image-input")?.click()
   }
 
   const save = () => {
@@ -85,13 +72,13 @@ export function ItemEditDialog({
         <div className="flex gap-4">
           <div className="shrink-0">
             <img
-              src={itemImageSrc(image)}
+              src={image}
               alt=""
               className="size-24 rounded-lg object-cover ring-1 ring-border"
             />
             <button
               type="button"
-              onClick={() => void chooseReplacement()}
+              onClick={() => document.getElementById("item-image-input")?.click()}
               className="mt-2 block w-full cursor-pointer text-center text-xs text-primary hover:underline"
             >
               Replace
