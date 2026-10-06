@@ -129,4 +129,4 @@ npm test
 
 ## License
 
-No license has been specified yet. Add a `LICENSE` file (for example, MIT) to let others know how they can use this project.
+"This project is licensed under the MIT License. See the  file for details."
